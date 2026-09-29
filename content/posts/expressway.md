@@ -79,4 +79,50 @@ Before getting too invested into UDP Port 500, I wanted to quickly confirm that 
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
+Using the above format, a basic ISAKMP packet can be created. This packet below has an initiator cookie of 7 empty bytes followed by 0x01 to identify that the initiator is myself. The responder cookie is left as 8 bytes of all zeros since this will be populated by the ISAKMP server. The next payload byte is 0x01 to tell the message parser that the next payload is a Security Association. Next is version infomation which can be shown by the byte 0x10 to indicate version 1.0 alongside exchange type which is set to 0x02 meaning the exchange is using the Main Mode setting (this will be useful later). The flags value here is also left blank as 0x00. To complete the message header, a message ID is added of 4 0x00 bytes and a length for the whole packet is covered in the next 4 bytes.
+
+Now that the header of the packet is complete, a Security Association is needed. The remainder of the packet encodes the following security association in RFC 2408 format. The contents of this security association is purposefully using outdated Hash, Encryption and Diffie Hellman parameters for maxiumum compatibility with the ISAKMP endpoint.
+ - Hash: SHA-256 or SHA-384
+ - Encryption: AES-256-CBC or AES-256-GCM
+ - DH Group: Group 14 (2048-bit) or higher
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+    | Next Payload  |   RESERVED    |         Payload Length        |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+    |              Domain of Interpretation (DOI)                   |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+    |                          Situation                            |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+    |                                                               |
+    ~                       Proposal Payloads                       ~
+
+    |                                                               |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+The final packet can be seen below and is sent towards the target using netcat. The interaction can then be monitored using wireshark to see if the ISAKMP server responds.
+
+```bash
+ISAKMP_PACKET="\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x01\x10\x02\x00\x00\x00\x00\x00\x00\x00\x00\x58\x00\x00\x00\x3c\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x30\x01\x01\x00\x01\x00\x00\x00\x28\x01\x01\x00\x00\x80\x01\x00\x07\x80\x0e\x00\x80\x80\x02\x00\x02\x80\x04\x00\x05\x80\x03\x00\x01\x80\x0b\x00\x01\x00\x0c\x00\x04\x00\x01\x51\x80"
+
+echo -ne "$ISAKMP_PACKET" | timeout 5 nc -u TARGET_IP 500 | hexdump -C
+```
+
+After the test packet is sent and new payload is collected from netcat and therefore confirms that the expressway server is hosting a ISAKMP endpoint.
+
+```bash
+echo -ne "$ISAKMP_PACKET" | timeout 5 nc -u expressway.htb 500 | hexdump -C
+00000000  00 00 00 00 00 00 00 01  10 ff 52 f4 7a e2 28 69  |..........R.z.(i|
+00000010  0b 10 05 00 5c cc 0d 13  00 00 00 38 00 00 00 1c  |....\......8....|
+00000020  00 00 00 01 01 10 00 0e  00 00 00 00 00 00 00 01  |................|
+00000030  10 ff 52 f4 7a e2 28 69                           |..R.z.(i|
+00000038
+```
 
