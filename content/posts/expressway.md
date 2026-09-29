@@ -5,6 +5,8 @@ title = 'Expressway'
 +++
 ## Introduction
 
+Expressway is an easy difficulty, Linux based machine hosted by hack the box. It is a retired machine meaning I can publish this blog and talk through how I was able to gain root access. This machine required me to explore IPSec, IKE and ISAKMP, all of which make up a suite of tools for securing traffic over the internet. To gain access at the user level, a flaw in IKEv1 is exploited to crack shared secrets between the user and a VPN server. For escalation to the root user, a recent kernel level exploit is used to gain full machine compromise.
+
 ## Enumeration
 
 To begin working on the expressway machine, I started by performing a TCP port scan of all ports. After only finding Port 22 (SSH), I ran nmap again with version information and scripts enabled to help uncover some more information.
