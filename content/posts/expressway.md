@@ -1,6 +1,6 @@
 +++
 date = '2026-09-07T21:16:16+01:00'
-draft = true
+draft = false
 title = 'Expressway'
 +++
 ## Introduction
@@ -50,17 +50,17 @@ PORT    STATE SERVICE VERSION
 
 Before continuing down the rabbit hole of the technology in use in this machine, I had to get my head around the terminology being used here.
 
-- ISAKMP = Internet Security Association and Key Management Protocol
+ - ISAKMP = Internet Security Association and Key Management Protocol
 
-- This can be thought of as a framework that allows for security associations to be established between two TCP/IP devices/endpoints that would like to talk using some form of authenticity, integrity and/or confidentiality.
+   - This can be thought of as a framework that allows for security associations to be established between two TCP/IP devices/endpoints that would like to talk using some form of authenticity, integrity and/or confidentiality.
 
 - IPSec = Internet Protocol Security
 
-- If ISAKMP is the framework for establishing security associations, IPSec refers instead to the actual mechanisms used to authenticate and maintain confidentiality of information being transmitted across a LAN or VPN.
+   - If ISAKMP is the framework for establishing security associations, IPSec refers instead to the actual mechanisms used to authenticate and maintain confidentiality of information being transmitted across a LAN or VPN.
 
-- IKE = Internet Key Exchange
+ - IKE = Internet Key Exchange
 
-- This term specifically references the key exchange tools used by two endpoints to securely negotiate shared secrets without exposing any sensitive or cryptographically important information over a network.
+   - This term specifically references the key exchange tools used by two endpoints to securely negotiate shared secrets without exposing any sensitive or cryptographically important information over a network.
 
 Whilst all the definitions above form part of the bigger process of VPN security, they all refer to distinct technologies that will be seen throughout the exploitation of this machine.
 

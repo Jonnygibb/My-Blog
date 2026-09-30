@@ -1,4 +1,8 @@
-baseURL = 'https://example.org/'
+baseURL = 'https://jonnygibb.github.io/'
 locale = 'en-us'
 title = "Jonny Hacks Things"
 theme = 'beautifulhugo'
+
+[caches]
+  [caches.images]
+    dir = ':cacheDir/images'
