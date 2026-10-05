@@ -93,11 +93,22 @@ Using the Groovy scripting language as a wrapper, I prepared a base64 bash paylo
 
 ## Web User Enumeration
 
+Upon gaining a reverse shell as the xwiki user, I used a python trick to improve the quality of the shell using pythons built in pty module.
+
+```python
+python -c 'import pty; pty.spawn("/bin/bash")'
+```
+
+From there, I searched the local directories for any interesting files related to either XWiki or the owners of the webserver/code-editor. The users directory reveals one user called *Oliver* but I can't access any of their files. I run some checks for and sudo privileges and also check the linux kernel version, but nothing immediately looks exploitable.
+
+I decided to check the configuration properties for XWiki, since it appears to use a MySQL database to store its content. Inside the XWiki configuration directory are validation and encryption keys. Whilst I didnt have a use for these immediately, I noted them down incase they prove useful later. 
+
 ```bash
 $ cat configuration.properties
 xwiki.authentication.validationKey = \uBF48\u0EE2\u03FE\u4B0F\u3C8E\u35DA\uEEB8\u4013\u1E90\uF9A7\u4040\u28EA\uD217\u288BF\u6AF7\u377E\u295C\uC98D\u17FB5\uD3D4\u967F\uB8DE\u955B\uD54B\uEE55\u890D\uAFFC\u993B\u1C49\u9B87
 xwiki.authentication.encryptionKey = \uC327\u7B18\u1FFE\u913D\uEDBD\u6C85\uE778\uD7C6\u91D0\uA56F\uE1CB\u014B\uD03E\u9E5D\uED9D\uB44A\u3A0C\u1C76\uF0D6\u8289\u645F\u6EB8\u00EB\u99DA\u589E\uE3CE\uC24A\u9486\u5EAB\u2E85\uCCEB\uAF4D
 ```
+After a further search and having reviewed the XWiki documentation, I turned my attention to a file containing database connections. Inside is a database password for the MySQL instance, which I was then able to access and explore. 
 
 ```xml
 xwiki@editor:/usr/lib/xwiki/WEB-INF$cat hibernate.cfg.xml
@@ -106,3 +117,6 @@ xwiki@editor:/usr/lib/xwiki/WEB-INF$cat hibernate.cfg.xml
 <property name="hibernate.connection.password">theEd1t0rTeam99</property>
 ```
 
+Once I had finished exploring the database, I decided to test whether the editor team were guilty of reusing passwords for mulitple purposes. By pairing the *Oliver* user account and the database password, I was able to access the machine via SSH.
+
+## Oliver User Enumeration
