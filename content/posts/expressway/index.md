@@ -10,7 +10,7 @@ Expressway is an easy difficulty, Linux based machine hosted by hack the box. It
 ## Enumeration
 
 To begin working on the expressway machine, I started by performing a TCP port scan of all ports. After only finding Port 22 (SSH), I ran nmap again with version information and scripts enabled to help uncover some more information.
-```
+```bash
 nmap -T4 -sC -sV expressway.htb
 
 Starting Nmap 7.98 ( https://nmap.org ) at 2026-09-07 17:05 -0400                                            
@@ -24,7 +24,7 @@ Service detection performed. Please report any incorrect results at https://nmap
 Nmap done: 1 IP address (1 host up) scanned in 1.07 seconds
 ```
 Having only found SSH and ruling out any easy exploits based on the version of OpenSSH presented, I decided to explore the UDP ports available on the machine. The results returned isakmp which I've encountered before in a previous piece of work. I knew it was associated with the protocols available for VPN connections. I took some time to research isakmp since I suspected this would be the crux to beating this machine.
-```
+```bash
 sudo nmap -T4 -sU -sV -sC expressway.htb
 
 [sudo] password for kali: 
@@ -67,7 +67,7 @@ Whilst all the definitions above form part of the bigger process of VPN security
 ## Exploring ISAKMP
 
 Before getting too invested into UDP Port 500, I wanted to quickly confirm that the endpoint was actually using ISAKMP. Initially, I did this manually by crafting a basic ISAKMP data packet and sending it to UDP Port 500. The ISAKMP packet structure is documented in the standard RFC 2408. A framework of the packet can be seen below.  
-```
+```bash
                      1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -93,7 +93,7 @@ Now that the header of the packet is complete, a Security Association is needed.
 - Encryption: AES-256-CBC or AES-256-GCM
 - DH Group: Group 14 (2048-bit) or higher
 
-```
+```bash
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
